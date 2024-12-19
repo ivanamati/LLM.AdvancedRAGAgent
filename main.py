@@ -3,8 +3,9 @@ import os
 import pandas as pd
 from llama_index.experimental.query_engine import PandasQueryEngine
 from prompts import new_prompt, instruction_str, context
-from note_engine import note_engine
-from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from note_engine import note_engine, save_note
+from pdf import croatia_engine
+from llama_index.core.tools import QueryEngineTool, ToolMetadata, FunctionTool
 from llama_index.core.agent import ReActAgent
 from llama_index.llms.openai import OpenAI
 
@@ -24,21 +25,35 @@ population_query_engine.update_prompts({"pandas_prompt": new_prompt})
 
 
 
-#### collection of tools
+#### collection of tools for agent
 
 tools = [
-    note_engine,
+    FunctionTool.from_defaults(
+        fn=save_note,
+        name="note_saver",
+        description="this tool can save a text or answer as a note to a file for the user"
+        ),
+
     QueryEngineTool(
         query_engine=population_query_engine, 
         metadata=ToolMetadata(
         name="population_data",
         description="this tool gives information about the world demographic information"
         )
+    ),
+    QueryEngineTool(
+        query_engine=croatia_engine, 
+        metadata=ToolMetadata(
+        name="croatian_data",
+        description="this tool gives all public available information about the croatia from pdf"
+        )
     )
 ]
 
+#### LLM and Agent
 llm = OpenAI(model="gpt-3.5-turbo")
 agent = ReActAgent.from_tools(tools, llm=llm, verbose=True, context=context)
+
 
 while (prompt := input("Enter a prompt or write q to quit: ")) != "q":
     result = agent.query(prompt)
